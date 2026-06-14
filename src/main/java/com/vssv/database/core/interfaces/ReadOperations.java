@@ -11,7 +11,7 @@ import com.vssv.database.core.models.ReadRecord;
  * @param <R> The type of {@link ReadRecord} returned by the reader.
  * @param <Q> The type of {@link Query} accepted by the reader.
  */
-public interface DBReader<R extends ReadRecord, Q extends Query> {
+public interface ReadOperations<R extends ReadRecord, Q extends Query> {
     
     /**
      * Executes the given query and retrieves the corresponding record from storage.

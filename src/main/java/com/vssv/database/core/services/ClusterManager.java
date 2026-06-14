@@ -29,12 +29,17 @@ public abstract class ClusterManager<T extends Table, C extends Cluster<T>, P ex
     /**
      * The cluster instance being managed.
      */
-    protected final C cluster;
+    protected C cluster;
     
     /**
      * A map to quickly look up the partition identifier for a given table.
      */
     private final Map<T, Integer> tablePartitionMap = new TreeMap<>();
+
+    /**
+     * A map to quickly look up the table identifier for a given table name.
+     */
+    private final Map<String, T> tableNameTableMap = new TreeMap<>();
     
     /**
      * The manager responsible for handling the cluster's partitions.
@@ -47,23 +52,33 @@ public abstract class ClusterManager<T extends Table, C extends Cluster<T>, P ex
     private static final String CLUSTER_CONFIG_FILE_NAME = "clusterConfig.ser";
 
     /**
-     * Constructs a ClusterManager, loading an existing cluster configuration from disk.
+     * Constructs a ClusterManager, setting up the base path and partition manager.
+     * Note: This does not automatically load the cluster from disk. Call {@link #readCluster()} to load it.
      *
      * @param basePath         The base path where the cluster data is stored.
      * @param partitionManager The manager for the partitions within this cluster.
-     * @throws IOException            If an I/O error occurs while reading the cluster configuration.
-     * @throws ClassNotFoundException If the class of a serialized object cannot be found.
      */
-    protected ClusterManager(String basePath, PM partitionManager) throws IOException, ClassNotFoundException {
+    protected ClusterManager(String basePath, PM partitionManager) {
         this.basePath = basePath;
         this.partitionManager = partitionManager;
-
+    }
+    
+    /**
+     * Reads the cluster configuration from disk and initializes internal state.
+     *
+     * @throws ClassNotFoundException If the serialized class cannot be found.
+     * @throws IOException If an I/O error occurs while reading the file.
+     */
+    protected void readCluster() throws ClassNotFoundException, IOException {
         try (FileInputStream fileIn = new FileInputStream(basePath + "/" + CLUSTER_CONFIG_FILE_NAME);
              ObjectInputStream objectIn = new ObjectInputStream(fileIn)) {
             cluster = (C) objectIn.readObject();
         }
         synchronized (cluster) {
-            cluster.tables.forEach(table -> tablePartitionMap.put(table, table.partitionIdentifier));
+            cluster.tables.forEach(table -> {
+                tablePartitionMap.put(table, table.partitionIdentifier);
+                tableNameTableMap.put(table.tableName, table);
+            });
         }
     }
 
@@ -89,6 +104,7 @@ public abstract class ClusterManager<T extends Table, C extends Cluster<T>, P ex
             throw new IllegalArgumentException("Table with the table name already exists.");
         }
         T table = createTable(tableName);
+        tableNameTableMap.put(tableName, table);
         tablePartitionMap.put(table, table.partitionIdentifier);
         cluster.tables.add(table);
         partitionIdentifier = table.partitionIdentifier;
@@ -101,7 +117,7 @@ public abstract class ClusterManager<T extends Table, C extends Cluster<T>, P ex
      */
     @Override
     public T getTableFromTableName(String tableName) {
-        T table = cluster.tables.stream().filter(t -> t.tableName.equals(tableName)).findFirst().orElse(null);
+        T table = tableNameTableMap.get(tableName);
         if (table == null) {
             throw new IllegalArgumentException("Table with the table name does not exists.");
         }

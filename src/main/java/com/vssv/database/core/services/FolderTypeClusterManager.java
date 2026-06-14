@@ -5,6 +5,7 @@ import com.vssv.database.core.models.FolderTypePartition;
 import com.vssv.database.core.models.FolderTypeTable;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 /**
  * A specialized {@link ClusterManager} for handling clusters where data is stored in separate folders per partition.
@@ -13,15 +14,20 @@ import java.io.IOException;
 public class FolderTypeClusterManager extends ClusterManager<FolderTypeTable, FolderTypeCluster, FolderTypePartition, FolderTypePartitionManager> {
     
     /**
-     * Constructs a new FolderTypeClusterManager.
+     * Constructs a new FolderTypeClusterManager. Attempts to read an existing cluster configuration from disk.
+     * If it fails (e.g., file not found), it initializes a new cluster with the specified number of partitions.
      *
      * @param basePath The base directory where the cluster data is stored.
      * @param partitionManager The manager responsible for handling the folder-based partitions.
-     * @throws IOException If an I/O error occurs while loading the cluster.
      * @throws ClassNotFoundException If the serialized cluster configuration is invalid.
      */
-    protected FolderTypeClusterManager(String basePath, FolderTypePartitionManager partitionManager) throws IOException, ClassNotFoundException {
+    protected FolderTypeClusterManager(String basePath, FolderTypePartitionManager partitionManager) throws ClassNotFoundException {
         super(basePath, partitionManager);
+        try {
+            readCluster();
+        } catch (IOException ioException) {
+            cluster = new FolderTypeCluster(basePath, new ArrayList<>());
+        }
     }
 
     /**
